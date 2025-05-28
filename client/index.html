@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Організатор записів</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .ql-container {
+            min-height: 150px;
+            background: white;
+            border-radius: 0.5rem;
+        }
+        .ql-toolbar {
+            border-radius: 0.5rem 0.5rem 0 0;
+        }
+        .columns-2 {
+            column-count: 2;
+            column-gap: 20px;
+        }
+        .note-columns {
+            column-count: 2;
+            column-gap: 20px;
+        }
+        @media (max-width: 640px) {
+            .columns-2, .note-columns {
+                column-count: 1;
+            }
+        }
+        .auth-modal {
+            background: #1a1a1a;
+            color: white;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        .auth-input {
+            background: #2d2d2d;
+            border: 1px solid #444;
+            color: white;
+        }
+        .auth-input::placeholder {
+            color: #aaa;
+        }
+        .auth-input:focus {
+            outline: none;
+            border-color: #4a90e2;
+            box-shadow: 0 0 5px rgba(74, 144, 226, 0.5);
+        }
+        .social-button {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: none;
+            border: none;
+        }
+        .login-button {
+            background: linear-gradient(90deg, #4a90e2, #63b3ed);
+            border-radius: 25px;
+        }
+        body.dark-theme {
+            background: linear-gradient(to bottom right, #2d2d2d, #1a1a1a);
+            color: #e5e7eb;
+        }
+        body.dark-theme nav {
+            background: #333;
+        }
+        body.dark-theme .bg-white {
+            background: #444;
+            color: #e5e7eb;
+        }
+        body.dark-theme .text-gray-800 {
+            color: #e5e7eb;
+        }
+        body.dark-theme .text-gray-600 {
+            color: #d1d5db;
+        }
+        body.dark-theme .text-gray-500 {
+            color: #9ca3af;
+        }
+        body.dark-theme footer {
+            background: #222;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-gray-100 min-h-screen flex flex-col">
+    <!-- Навігаційна панель -->
+    <nav class="bg-white shadow-lg p-4 sticky top-0 z-10">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-blue-600">Організатор записів</h1>
+            <div class="flex items-center space-x-4">
+                <label for="themeToggle" class="text-gray-700">Темна тема:</label>
+                <input type="checkbox" id="themeToggle" class="h-5 w-5">
+                <button id="authButton" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-300">
+                    Вхід/Реєстрація
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Основний контейнер -->
+    <div class="container mx-auto p-6 flex-1">
+        <div class="flex justify-center mb-6">
+            <button id="addButton" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 transform hover:scale-105">
+                Додати новий запис
+            </button>
+        </div>
+
+        <!-- Панель для сортування та фільтрації -->
+        <div class="flex flex-col sm:flex-row justify-between mb-6 space-y-4 sm:space-y-0 sm:space-x-4">
+            <div>
+                <label for="sortOrder" class="text-gray-700 mr-2">Сортувати:</label>
+                <select id="sortOrder" class="p-2 border rounded-lg">
+                    <option value="desc">Від новіших до старіших</option>
+                    <option value="asc">Від старіших до новіших</option>
+                </select>
+            </div>
+            <div>
+                <label for="filterDate" class="text-gray-700 mr-2">Фільтрувати за датою:</label>
+                <input id="filterDate" class="p-2 border rounded-lg" placeholder="Оберіть дату">
+            </div>
+            <div>
+                <label for="categoryFilter" class="text-gray-700 mr-2">Фільтрувати за категорією:</label>
+                <select id="categoryFilter" class="p-2 border rounded-lg">
+                    <option value="">Усі</option>
+                    <option value="Особисте">Особисте</option>
+                    <option value="Робота">Робота</option>
+                    <option value="Інше">Інше</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Список збережених записів -->
+        <div id="notesList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Записи будуть додаватися динамічно -->
+        </div>
+
+        <!-- Модальне вікно для входу/реєстрації -->
+        <div id="authModal" class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden flex items-center justify-center z-20">
+            <div class="auth-modal p-6 rounded-xl w-full max-w-sm">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold">Вхід в акаунт</h2>
+                    <button id="cancelAuth" class="text-gray-400 hover:text-gray-200">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <div class="space-y-4">
+                    <div class="relative">
+                        <input id="username" type="text" class="auth-input w-full p-3 rounded-lg placeholder-gray-400 pl-10" placeholder="Логін/пошта">
+                        <i class="fas fa-envelope absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    </div>
+                    <div class="relative">
+                        <input id="password" type="password" class="auth-input w-full p-3 rounded-lg placeholder-gray-400 pl-10" placeholder="Пароль">
+                        <i class="fas fa-lock absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <input type="checkbox" id="captcha" class="h-5 w-5">
+                        <label for="captcha" class="text-sm">Я не робот</label>
+                        <div class="ml-auto flex items-center space-x-1">
+                            <svg class="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15v-2h2v2h-2zm1-4c-1.1 0-2-.9-2-2V7h4v4c0 1.1-.9 2-2 2z"/></svg>
+                            <span class="text-sm">reCAPTCHA</span>
+                        </div>
+                    </div>
+                </div>
+                <button id="submitAuth" class="login-button w-full text-white font-semibold py-3 rounded-full mt-6">Вхід</button>
+                <div class="text-center mt-4">
+                    <a href="#" id="forgotPasswordLink" class="text-blue-400 hover:underline text-sm">Забули пароль?</a>
+                </div>
+                <div class="flex justify-center space-x-4 mt-4">
+                    <button id="vkSignIn" class="social-button">
+                        <i class="fab fa-vk text-blue-500 text-2xl"></i>
+                    </button>
+                    <button id="googleSignIn" class="social-button">
+                        <i class="fab fa-google text-2xl"></i>
+                    </button>
+                    <button id="yandexSignIn" class="social-button">
+                        <i class="fab fa-yandex text-red-500 text-2xl"></i>
+                    </button>
+                </div>
+                <div class="text-center mt-2">
+                    <a href="#" id="registerLink" class="text-blue-400 hover:underline text-sm">Немає облікового запису? Зареєструватися</a>
+                </div>
+                <p class="text-center text-xs text-gray-400 mt-4">Натискаючи Вхід, ви приймаєте користувацьку угоду та політику конфіденційності</p>
+            </div>
+        </div>
+
+        <!-- Модальне вікно для відновлення пароля -->
+        <div id="forgotPasswordModal" class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden flex items-center justify-center z-20">
+            <div class="auth-modal p-6 rounded-xl w-full max-w-sm">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold">Відновлення пароля</h2>
+                    <button id="cancelForgotPassword" class="text-gray-400 hover:text-gray-200">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <div class="space-y-4">
+                    <div class="relative">
+                        <input id="forgotEmail" type="email" class="auth-input w-full p-3 rounded-lg placeholder-gray-400 pl-10" placeholder="Пошта">
+                        <i class="fas fa-envelope absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    </div>
+                </div>
+                <button id="submitForgotPassword" class="login-button w-full text-white font-semibold py-3 rounded-full mt-6">Надіслати</button>
+                <div class="text-center mt-4">
+                    <p class="text-sm text-gray-400">Посилання для скидання пароля буде надіслано на вашу пошту</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальне вікно для реєстрації -->
+        <div id="registerModal" class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden flex items-center justify-center z-20">
+            <div class="auth-modal p-6 rounded-xl w-full max-w-sm">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold">Реєстрація</h2>
+                    <button id="cancelRegister" class="text-gray-400 hover:text-gray-200">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <div class="space-y-4">
+                    <div class="relative">
+                        <input id="registerEmail" type="email" class="auth-input w-full p-3 rounded-lg placeholder-gray-400 pl-10" placeholder="Пошта">
+                        <i class="fas fa-envelope absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    </div>
+                    <div class="relative">
+                        <input id="registerPassword" type="password" class="auth-input w-full p-3 rounded-lg placeholder-gray-400 pl-10" placeholder="Пароль">
+                        <i class="fas fa-lock absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    </div>
+                    <div class="relative">
+                        <input id="registerConfirmPassword" type="password" class="auth-input w-full p-3 rounded-lg placeholder-gray-400 pl-10" placeholder="Підтвердіть пароль">
+                        <i class="fas fa-lock absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <input type="checkbox" id="registerCaptcha" class="h-5 w-5">
+                        <label for="registerCaptcha" class="text-sm">Я не робот</label>
+                        <div class="ml-auto flex items-center space-x-1">
+                            <svg class="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15v-2h2v2h-2zm1-4c-1.1 0-2-.9-2-2V7h4v4c0 1.1-.9 2-2 2z"/></svg>
+                            <span class="text-sm">reCAPTCHA</span>
+                        </div>
+                    </div>
+                </div>
+                <button id="submitRegister" class="login-button w-full text-white font-semibold py-3 rounded-full mt-6">Зареєструватися</button>
+                <div class="text-center mt-4">
+                    <p class="text-sm text-gray-400">Натискаючи Зареєструватися, ви приймаєте користувацьку угоду та політику конфіденційності</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальне вікно для введення тексту -->
+        <div id="textModal" class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden flex items-center justify-center z-20">
+            <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-2xl transform transition-all duration-300 scale-95">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Введіть текст</h2>
+                <div class="mb-4">
+                    <label for="category" class="block text-sm font-medium text-gray-700">Категорія:</label>
+                    <select id="category" class="w-full p-2 border rounded-lg">
+                        <option value="Особисте">Особисте</option>
+                        <option value="Робота">Робота</option>
+                        <option value="Інше">Інше</option>
+                    </select>
+                </div>
+                <div id="editor" class="columns-2"></div>
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button id="cancelText" class="bg-gray-400 hover:bg-gray-500 text-white py-2 px-4 rounded-lg transition duration-300">Скасувати</button>
+                    <button id="continueButton" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition duration-300" disabled>Продовжити</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальне вікно для вибору дати -->
+        <div id="calendarModal" class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden flex items-center justify-center z-20">
+            <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-95">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Виберіть дату</h2>
+                <input id="calendar" class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Оберіть дату">
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button id="cancelCalendar" class="bg-gray-400 hover:bg-gray-500 text-white py-2 px-4 rounded-lg transition duration-300">Скасувати</button>
+                    <button id="saveButton" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition duration-300">Зберегти</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Футер -->
+    <footer class="bg-gray-800 text-white text-center py-4 mt-auto">
+        <p>© 2025 Організатор записів. Усі права захищено.</p>
+    </footer>
+
+    <script>
+        // Ініціалізація Quill
+        const quill = new Quill('#editor', {
+            theme: 'snow',
+            modules: {
+                toolbar: [
+                    [{ 'font': [] }],
+                    [{ 'size': ['small', false, 'large', 'huge'] }],
+                    ['bold', 'italic', 'underline'],
+                    [{ 'color': [] }, { 'background': [] }],
+                    [{ 'align': [] }],
+                    ['clean']
+                ]
+            }
+        });
+
+        // Ініціалізація календаря
+        flatpickr("#calendar", {
+            dateFormat: "d/m/Y",
+            locale: {
+                firstDayOfWeek: 1,
+                weekdays: {
+                    shorthand: ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'],
+                    longhand: ['Неділя', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П’ятниця', 'Субота']
+                },
+                months: {
+                    shorthand: ['Січ', 'Лют', 'Бер', 'Кві', 'Тра', 'Чер', 'Лип', 'Сер', 'Вер', 'Жов', 'Лис', 'Гру'],
+                    longhand: ['Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень', 'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень']
+                }
+            }
+        });
+
+        flatpickr("#filterDate", {
+            dateFormat: "d/m/Y",
+            locale: {
+                firstDayOfWeek: 1,
+                weekdays: {
+                    shorthand: ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'],
+                    longhand: ['Неділя', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П’ятниця', 'Субота']
+                },
+                months: {
+                    shorthand: ['Січ', 'Лют', 'Бер', 'Кві', 'Тра', 'Чер', 'Лип', 'Сер', 'Вер', 'Жов', 'Лис', 'Гру'],
+                    longhand: ['Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень', 'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень']
+                }
+            }
+        });
+
+        // Елементи DOM
+        const addButton = document.getElementById('addButton');
+        const authButton = document.getElementById('authButton');
+        const authModal = document.getElementById('authModal');
+        const cancelAuth = document.getElementById('cancelAuth');
+        const submitAuth = document.getElementById('submitAuth');
+        const username = document.getElementById('username');
+        const password = document.getElementById('password');
+        const captcha = document.getElementById('captcha');
+        const vkSignIn = document.getElementById('vkSignIn');
+        const yandexSignIn = document.getElementById('yandexSignIn');
+        const googleSignIn = document.getElementById('googleSignIn');
+        const textModal = document.getElementById('textModal');
+        const calendarModal = document.getElementById('calendarModal');
+        const continueButton = document.getElementById('continueButton');
+        const cancelText = document.getElementById('cancelText');
+        const cancelCalendar = document.getElementById('cancelCalendar');
+        const saveButton = document.getElementById('saveButton');
+        const calendar = document.getElementById('calendar');
+        const notesList = document.getElementById('notesList');
+        const themeToggle = document.getElementById('themeToggle');
+        const categoryFilter = document.getElementById('categoryFilter');
+        const sortOrder = document.getElementById('sortOrder');
+        const filterDate = document.getElementById('filterDate');
+        const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+        const registerLink = document.getElementById('registerLink');
+        const forgotPasswordModal = document.getElementById('forgotPasswordModal');
+        const cancelForgotPassword = document.getElementById('cancelForgotPassword');
+        const submitForgotPassword = document.getElementById('submitForgotPassword');
+        const forgotEmail = document.getElementById('forgotEmail');
+        const registerModal = document.getElementById('registerModal');
+        const cancelRegister = document.getElementById('cancelRegister');
+        const submitRegister = document.getElementById('submitRegister');
+        const registerEmail = document.getElementById('registerEmail');
+        const registerPassword = document.getElementById('registerPassword');
+        const registerConfirmPassword = document.getElementById('registerConfirmPassword');
+        const registerCaptcha = document.getElementById('registerCaptcha');
+
+        // Список для зберігання записів (тимчасово, доки не завантажимо з сервера)
+        let notes = [];
+        let isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+        let userId = localStorage.getItem('userId');
+
+        // Генерація випадкового userId, якщо його немає
+        if (!userId) {
+            userId = Math.random().toString(36).substring(2, 15);
+            localStorage.setItem('userId', userId);
+        }
+
+        // Перевірка авторизації
+        if (isAuthenticated) {
+            authButton.textContent = 'Вийти';
+            fetchNotes();
+        }
+
+        // Перемикання теми
+        if (localStorage.getItem('theme') === 'dark') {
+            document.body.classList.add('dark-theme');
+            themeToggle.checked = true;
+        }
+        themeToggle.addEventListener('change', () => {
+            document.body.classList.toggle('dark-theme');
+            localStorage.setItem('theme', themeToggle.checked ? 'dark' : 'light');
+        });
+
+        // Функція для завантаження записів із сервера
+        async function fetchNotes() {
+            try {
+                const response = await fetch(`http://localhost:3000/api/notes/${userId}`);
+                notes = await response.json();
+                renderNotes();
+            } catch (err) {
+                console.error('Failed to fetch notes:', err);
+                alert('Не вдалося завантажити записи. Перевірте підключення до сервера.');
+            }
+        }
+
+        // Відкриття модального вікна для входу/реєстрації
+        authButton.addEventListener('click', () => {
+            if (isAuthenticated) {
+                localStorage.setItem('isAuthenticated', 'false');
+                isAuthenticated = false;
+                authButton.textContent = 'Вхід/Реєстрація';
+                notes = [];
+                renderNotes();
+                alert('Ви вийшли з акаунта');
+            } else {
+                authModal.classList.remove('hidden');
+                authModal.querySelector('div').classList.remove('scale-95');
+                username.value = '';
+                password.value = '';
+                captcha.checked = false;
+            }
+        });
+
+        // Скасування входу/реєстрації
+        cancelAuth.addEventListener('click', () => {
+            authModal.classList.add('hidden');
+        });
+
+        // Підтвердження входу/реєстрації
+        submitAuth.addEventListener('click', () => {
+            if (username.value.trim() && password.value.trim() && captcha.checked) {
+                alert(`Вхід через логін:\nІм’я/Пошта: ${username.value}\nПароль: ${password.value}`);
+                authModal.classList.add('hidden');
+                localStorage.setItem('isAuthenticated', 'true');
+                isAuthenticated = true;
+                authButton.textContent = 'Вийти';
+                fetchNotes();
+            } else {
+                alert('Будь ласка, заповніть усі поля та пройдіть CAPTCHA');
+            }
+        });
+
+        // Вхід через VK
+        vkSignIn.addEventListener('click', () => {
+            alert('Вхід через VK (функція в розробці)');
+            authModal.classList.add('hidden');
+            localStorage.setItem('isAuthenticated', 'true');
+            isAuthenticated = true;
+            authButton.textContent = 'Вийти';
+            fetchNotes();
+        });
+
+        // Вхід через Yandex
+        yandexSignIn.addEventListener('click', () => {
+            alert('Вхід через Yandex (функція в розробці)');
+            authModal.classList.add('hidden');
+            localStorage.setItem('isAuthenticated', 'true');
+            isAuthenticated = true;
+            authButton.textContent = 'Вийти';
+            fetchNotes();
+        });
+
+        // Вхід через Google
+        googleSignIn.addEventListener('click', () => {
+            alert('Вхід через Google (функція в розробці)');
+            authModal.classList.add('hidden');
+            localStorage.setItem('isAuthenticated', 'true');
+            isAuthenticated = true;
+            authButton.textContent = 'Вийти';
+            fetchNotes();
+        });
+
+        // Відкриття модального вікна для відновлення пароля
+        forgotPasswordLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            authModal.classList.add('hidden');
+            forgotPasswordModal.classList.remove('hidden');
+            forgotPasswordModal.querySelector('div').classList.remove('scale-95');
+            forgotEmail.value = '';
+        });
+
+        // Скасування відновлення пароля
+        cancelForgotPassword.addEventListener('click', () => {
+            forgotPasswordModal.classList.add('hidden');
+            authModal.classList.remove('hidden');
+            authModal.querySelector('div').classList.remove('scale-95');
+        });
+
+        // Підтвердження відновлення пароля
+        submitForgotPassword.addEventListener('click', () => {
+            if (forgotEmail.value.trim()) {
+                alert(`Посилання для скидання пароля надіслано на ${forgotEmail.value}`);
+                forgotPasswordModal.classList.add('hidden');
+            } else {
+                alert('Будь ласка, введіть вашу пошту');
+            }
+        });
+
+        // Відкриття модального вікна для реєстрації
+        registerLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            authModal.classList.add('hidden');
+            registerModal.classList.remove('hidden');
+            registerModal.querySelector('div').classList.remove('scale-95');
+            registerEmail.value = '';
+            registerPassword.value = '';
+            registerConfirmPassword.value = '';
+            registerCaptcha.checked = false;
+        });
+
+        // Скасування реєстрації
+        cancelRegister.addEventListener('click', () => {
+            registerModal.classList.add('hidden');
+            authModal.classList.remove('hidden');
+            authModal.querySelector('div').classList.remove('scale-95');
+        });
+
+        // Підтвердження реєстрації
+        submitRegister.addEventListener('click', () => {
+            if (registerEmail.value.trim() && registerPassword.value.trim() && registerConfirmPassword.value.trim() && registerCaptcha.checked) {
+                if (registerPassword.value === registerConfirmPassword.value) {
+                    alert(`Реєстрація успішна для ${registerEmail.value}`);
+                    registerModal.classList.add('hidden');
+                    authModal.classList.remove('hidden');
+                    authModal.querySelector('div').classList.remove('scale-95');
+                    username.value = registerEmail.value;
+                    password.value = registerPassword.value;
+                    captcha.checked = true;
+                } else {
+                    alert('Паролі не збігаються');
+                }
+            } else {
+                alert('Будь ласка, заповніть усі поля та пройдіть CAPTCHA');
+            }
+        });
+
+        // Відкриття модального вікна для тексту
+        addButton.addEventListener('click', () => {
+            if (!isAuthenticated) {
+                alert('Будь ласка, увійдіть в акаунт, щоб додавати записи.');
+                return;
+            }
+            textModal.classList.remove('hidden');
+            textModal.querySelector('div').classList.remove('scale-95');
+            quill.setContents([]);
+            continueButton.disabled = true;
+        });
+
+        // Активація кнопки "Продовжити" при введенні тексту
+        quill.on('text-change', () => {
+            const text = quill.getText().trim();
+            continueButton.disabled = text === '';
+        });
+
+        // Перехід до вибору дати
+        continueButton.addEventListener('click', () => {
+            textModal.classList.add('hidden');
+            calendarModal.classList.remove('hidden');
+            calendarModal.querySelector('div').classList.remove('scale-95');
+            calendar.value = '';
+        });
+
+        // Скасування введення тексту
+        cancelText.addEventListener('click', () => {
+            textModal.classList.add('hidden');
+        });
+
+        // Скасування вибору дати
+        cancelCalendar.addEventListener('click', () => {
+            calendarModal.classList.add('hidden');
+        });
+
+        // Збереження запису через API
+        saveButton.addEventListener('click', async () => {
+            const text = quill.root.innerHTML;
+            const date = calendar.value;
+            const category = document.getElementById('category').value;
+            if (date) {
+                try {
+                    const response = await fetch('http://localhost:3000/api/notes', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text, date, category, userId }),
+                    });
+                    const newNote = await response.json();
+                    notes.push(newNote);
+                    renderNotes();
+                    calendarModal.classList.add('hidden');
+                    alert(`Запис збережено:\nДата: ${date}\nКатегорія: ${category}`);
+                } catch (err) {
+                    console.error('Failed to save note:', err);
+                    alert('Не вдалося зберегти запис. Перевірте підключення до сервера.');
+                }
+            } else {
+                alert('Будь ласка, оберіть дату');
+            }
+        });
+
+        // Відображення списку записів
+        function renderNotes() {
+            const sortOrderValue = sortOrder.value;
+            const filterDateValue = filterDate.value;
+            const filterCategoryValue = categoryFilter.value;
+
+            let filteredNotes = [...notes];
+            if (filterDateValue) {
+                filteredNotes = filteredNotes.filter(note => note.date === filterDateValue);
+            }
+            if (filterCategoryValue) {
+                filteredNotes = filteredNotes.filter(note => note.category === filterCategoryValue);
+            }
+
+            filteredNotes.sort((a, b) => {
+                const dateA = new Date(a.date.split('/').reverse().join('-'));
+                const dateB = new Date(b.date.split('/').reverse().join('-'));
+                return sortOrderValue === 'asc' ? dateA - dateB : dateB - dateA;
+            });
+
+            notesList.innerHTML = '';
+            filteredNotes.forEach((note, index) => {
+                const noteCard = document.createElement('div');
+                noteCard.className = 'bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition duration-300';
+                noteCard.innerHTML = `
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Запис #${index + 1}</h3>
+                    <div class="text-gray-600 mb-2 note-columns">${note.text}</div>
+                    <p class="text-sm text-gray-500">Категорія: ${note.category}</p>
+                    <p class="text-sm text-gray-500">Дата: ${note.date}</p>
+                    <div class="flex space-x-2 mt-2">
+                        <button class="edit-btn bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded-lg transition duration-300" data-id="${note._id}">Редагувати</button>
+                        <button class="delete-btn bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-lg transition duration-300" data-id="${note._id}">Видалити</button>
+                    </div>
+                `;
+                notesList.appendChild(noteCard);
+            });
+
+            // Обробник для редагування
+            document.querySelectorAll('.edit-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const id = e.target.dataset.id;
+                    const note = notes.find(n => n._id === id);
+                    quill.root.innerHTML = note.text;
+                    calendar.value = note.date;
+                    document.getElementById('category').value = note.category;
+                    textModal.classList.remove('hidden');
+                    textModal.querySelector('div').classList.remove('scale-95');
+                    continueButton.disabled = false;
+
+                    const saveEditedNote = async () => {
+                        const newText = quill.root.innerHTML;
+                        const newDate = calendar.value;
+                        const newCategory = document.getElementById('category').value;
+                        if (newDate) {
+                            try {
+                                const response = await fetch(`http://localhost:3000/api/notes/${id}`, {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ text: newText, date: newDate, category: newCategory, userId }),
+                                });
+                                const updatedNote = await response.json();
+                                const noteIndex = notes.findIndex(n => n._id === id);
+                                notes[noteIndex] = updatedNote;
+                                renderNotes();
+                                calendarModal.classList.add('hidden');
+                                alert(`Запис оновлено:\nДата: ${newDate}\nКатегорія: ${newCategory}`);
+                            } catch (err) {
+                                console.error('Failed to update note:', err);
+                                alert('Не вдалося оновити запис. Перевірте підключення до сервера.');
+                            }
+                        } else {
+                            alert('Будь ласка, оберіть дату');
+                        }
+                        saveButton.removeEventListener('click', saveEditedNote);
+                    };
+                    saveButton.addEventListener('click', saveEditedNote);
+                });
+            });
+
+            // Обробник для видалення
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const id = e.target.dataset.id;
+                    if (confirm(`Ви впевнені, що хочете видалити запис?`)) {
+                        try {
+                            await fetch(`http://localhost:3000/api/notes/${id}`, {
+                                method: 'DELETE',
+                            });
+                            notes = notes.filter(note => note._id !== id);
+                            renderNotes();
+                        } catch (err) {
+                            console.error('Failed to delete note:', err);
+                            alert('Не вдалося видалити запис. Перевірте підключення до сервера.');
+                        }
+                    }
+                });
+            });
+        }
+
+        // Оновлення при зміні сортування або фільтрації
+        sortOrder.addEventListener('change', renderNotes);
+        filterDate.addEventListener('change', renderNotes);
+        categoryFilter.addEventListener('change', renderNotes);
+    </script>
+</body>
+</html>
